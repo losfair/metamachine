@@ -1,0 +1,20 @@
+# Builtin Microcode for MetaMachine.
+
+@ldconst16 0, r0, 1
+@ldconst16 0, r1, 1
+@ldconst16 0, r2, 5000
+
+begin:
+@debug 1, r0
+@add 64, r0, r0, r1
+cmp_s 64, r3, r0, r2
+br end, 1, r3
+br begin
+
+end:
+@debug 2, r0
+@debug 3, r2
+br lockup
+
+lockup:
+br lockup

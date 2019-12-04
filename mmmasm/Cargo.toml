@@ -1,0 +1,13 @@
+[package]
+name = "mmmasm"
+version = "0.1.0"
+authors = ["losfair <zhy20000919@hotmail.com>"]
+edition = "2018"
+description = "MetaMachine Microcode Assembler"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.release]
+debug = true
+
+[dependencies]
