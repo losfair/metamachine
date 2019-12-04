@@ -5,7 +5,7 @@ package builtin_microcode is
     constant BUILTIN_MICROCODE_WORDS: microcode_t := (
         0 => x"f0000001",
         1 => x"f0020001",
-        2 => x"f0041388",
+        2 => x"70041388",
         3 => x"fe020000",
         4 => x"860000b0",
         5 => x"20180170",

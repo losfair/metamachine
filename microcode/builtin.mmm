@@ -2,7 +2,7 @@
 
 @ldconst16 0, r0, 1
 @ldconst16 0, r1, 1
-@ldconst16 0, r2, 5000
+ldconst16 0, r2, 5000
 
 begin:
 @debug 1, r0
