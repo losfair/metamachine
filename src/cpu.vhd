@@ -19,12 +19,33 @@ architecture impl of cpu is
       i_work: in std_logic;
       i_inst: in std_logic_vector(31 downto 0);
       i_gprs: in gprset_t;
+      i_memory_result: in memory_result_t;
       o_gprs: out gprset_t;
       o_gpr_update: out gprupdate_t;
       o_done: out std_logic;
       o_exception: out exception_t;
       o_br: out branch_t;
-      o_br_target: out natural range 0 to MAX_MICROCODE
+      o_br_target: out natural range 0 to MAX_MICROCODE;
+      o_memory_work: out memory_work_t
+    );
+  end component;
+
+  component memory_sequencer is
+    port (
+      i_clk: in std_logic;
+      i_work: in memory_work_array_t;
+      o_result: out memory_result_array_t;
+  
+      i_backing_result: in memory_result_t;
+      o_backing_work: out memory_work_t
+    );
+  end component;
+
+  component ram is
+    port (
+      i_clk: in std_logic;
+      i_work: in memory_work_t;
+      o_result: out memory_result_t
     );
   end component;
 
@@ -42,20 +63,43 @@ architecture impl of cpu is
   signal next_eu: natural range 0 to MAX_EU := 0;
   signal state: cpu_state_t := cpustate_exec;
 
+  signal memory_work: memory_work_array_t := (others => EMPTY_MEMORY_WORK);
+  signal memory_result: memory_result_array_t := (others => EMPTY_MEMORY_RESULT);
+
+  signal sequential_memory_work: memory_work_t := EMPTY_MEMORY_WORK;
+  signal sequential_memory_result: memory_result_t := EMPTY_MEMORY_RESULT;
+
 begin
   o_leds <= (0 => gprs(0)(0), others => '0');
+
+  mseq: memory_sequencer
+    port map(
+      i_clk => i_clk,
+      i_work => memory_work,
+      o_result => memory_result,
+      i_backing_result => sequential_memory_result,
+      o_backing_work => sequential_memory_work
+    );
+  ram_instance: ram
+    port map(
+      i_clk => i_clk,
+      i_work => sequential_memory_work,
+      o_result => sequential_memory_result
+    );
   eu_0: execution_unit
     port map(
       i_clk => i_clk,
       i_work => eu_tx(0).work,
       i_inst => eu_tx(0).inst,
       i_gprs => gprs,
+      i_memory_result => memory_result(0),
       o_gprs => eu_rx(0).gprs,
       o_gpr_update => eu_rx(0).gpr_update,
       o_done => eu_rx(0).done,
       o_exception => eu_rx(0).exception,
       o_br => eu_rx(0).br,
-      o_br_target => eu_rx(0).br_target
+      o_br_target => eu_rx(0).br_target,
+      o_memory_work => memory_work(0)
     );
   eu_1: execution_unit
     port map(
@@ -63,12 +107,14 @@ begin
       i_work => eu_tx(1).work,
       i_inst => eu_tx(1).inst,
       i_gprs => gprs,
+      i_memory_result => memory_result(1),
       o_gprs => eu_rx(1).gprs,
       o_gpr_update => eu_rx(1).gpr_update,
       o_done => eu_rx(1).done,
       o_exception => eu_rx(1).exception,
       o_br => eu_rx(1).br,
-      o_br_target => eu_rx(1).br_target
+      o_br_target => eu_rx(1).br_target,
+      o_memory_work => memory_work(1)
     );
   eu_2: execution_unit
     port map(
@@ -76,12 +122,14 @@ begin
       i_work => eu_tx(2).work,
       i_inst => eu_tx(2).inst,
       i_gprs => gprs,
+      i_memory_result => memory_result(2),
       o_gprs => eu_rx(2).gprs,
       o_gpr_update => eu_rx(2).gpr_update,
       o_done => eu_rx(2).done,
       o_exception => eu_rx(2).exception,
       o_br => eu_rx(2).br,
-      o_br_target => eu_rx(2).br_target
+      o_br_target => eu_rx(2).br_target,
+      o_memory_work => memory_work(2)
     );
   eu_3: execution_unit
     port map(
@@ -89,12 +137,14 @@ begin
       i_work => eu_tx(3).work,
       i_inst => eu_tx(3).inst,
       i_gprs => gprs,
+      i_memory_result => memory_result(3),
       o_gprs => eu_rx(3).gprs,
       o_gpr_update => eu_rx(3).gpr_update,
       o_done => eu_rx(3).done,
       o_exception => eu_rx(3).exception,
       o_br => eu_rx(3).br,
-      o_br_target => eu_rx(3).br_target
+      o_br_target => eu_rx(3).br_target,
+      o_memory_work => memory_work(3)
     );
   eu_4: execution_unit
     port map(
@@ -102,12 +152,14 @@ begin
       i_work => eu_tx(4).work,
       i_inst => eu_tx(4).inst,
       i_gprs => gprs,
+      i_memory_result => memory_result(4),
       o_gprs => eu_rx(4).gprs,
       o_gpr_update => eu_rx(4).gpr_update,
       o_done => eu_rx(4).done,
       o_exception => eu_rx(4).exception,
       o_br => eu_rx(4).br,
-      o_br_target => eu_rx(4).br_target
+      o_br_target => eu_rx(4).br_target,
+      o_memory_work => memory_work(4)
     );
   eu_5: execution_unit
     port map(
@@ -115,12 +167,14 @@ begin
       i_work => eu_tx(5).work,
       i_inst => eu_tx(5).inst,
       i_gprs => gprs,
+      i_memory_result => memory_result(5),
       o_gprs => eu_rx(5).gprs,
       o_gpr_update => eu_rx(5).gpr_update,
       o_done => eu_rx(5).done,
       o_exception => eu_rx(5).exception,
       o_br => eu_rx(5).br,
-      o_br_target => eu_rx(5).br_target
+      o_br_target => eu_rx(5).br_target,
+      o_memory_work => memory_work(5)
     );
 
   process (i_clk) is
@@ -151,7 +205,9 @@ begin
             (eu_tx(0).work = '1' and eu_rx(0).done = '0') or
             (eu_tx(1).work = '1' and eu_rx(1).done = '0') or
             (eu_tx(2).work = '1' and eu_rx(2).done = '0') or
-            (eu_tx(3).work = '1' and eu_rx(3).done = '0') then
+            (eu_tx(3).work = '1' and eu_rx(3).done = '0') or 
+            (eu_tx(4).work = '1' and eu_rx(4).done = '0') or 
+            (eu_tx(5).work = '1' and eu_rx(5).done = '0') then
           elsif eu_rx(0).exception /= exc_none then
             report "EXCEPTION on EU 0";
             state <= cpustate_halt;

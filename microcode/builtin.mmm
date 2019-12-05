@@ -2,7 +2,32 @@
 
 @ldconst16 0, r0, 1
 @ldconst16 0, r1, 1
-ldconst16 0, r2, 5000
+@ldconst16 0, r2, 5000
+@ldconst16 0, r50, 1024
+@ldconst16 0, r51, 3072
+ldconst16 1, r52, 1
+
+@debug 90, r0
+@str 64, r52, r50
+str 64, r2, r51
+
+@debug 91, r0
+@ldr 64, r60, r50
+ldr 64, r61, r51
+
+debug 92, r0
+
+@debug 100, r60
+debug 101, r61
+
+@debug 93, r0
+@ldr 16, r60, r50
+ldr 16, r61, r51
+
+@debug 100, r60
+debug 101, r61
+
+br lockup
 
 begin:
 @debug 1, r0

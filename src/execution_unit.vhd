@@ -10,12 +10,14 @@ entity execution_unit is
     i_work: in std_logic;
     i_inst: in std_logic_vector(31 downto 0);
     i_gprs: in gprset_t;
+    i_memory_result: in memory_result_t;
     o_gprs: out gprset_t;
     o_gpr_update: out gprupdate_t;
     o_done: out std_logic;
     o_exception: out exception_t;
     o_br: out branch_t;
-    o_br_target: out natural range 0 to MAX_MICROCODE
+    o_br_target: out natural range 0 to MAX_MICROCODE;
+    o_memory_work: out memory_work_t
   );
 end execution_unit;
 
@@ -27,6 +29,7 @@ architecture impl of execution_unit is
   signal state: eu_state_t := eu_state_init;
   signal br: branch_t := br_none;
   signal br_target: natural range 0 to MAX_MICROCODE := 0;
+  signal memory_work: memory_work_t := EMPTY_MEMORY_WORK;
 
   signal s_zero: gpr_t := (others => '0');
   signal s_one: gpr_t := (others => '1');
@@ -40,6 +43,10 @@ architecture impl of execution_unit is
   signal s_ins_arith_src2: gprindex_t;
   signal s_ins_arith_width: std_logic_vector(1 downto 0);
   signal s_ins_arith_signed: std_logic;
+  signal s_ins_memory_gpr: gprindex_t;
+  signal s_ins_memory_addrreg: gprindex_t;
+  signal s_ins_memory_width: std_logic_vector(1 downto 0);
+  signal s_ins_memory_offset: std_logic_vector(10 downto 0);
 
   signal s_reg_opcode_cond: condition_t;
   signal s_reg_cond_match: std_logic;
@@ -64,6 +71,7 @@ architecture impl of execution_unit is
   signal s_reg_arith_shr_u: gpr_t;
   signal s_reg_arith_shr_s: gpr_t;
   signal s_reg_arith_shr: gpr_t;
+  signal s_reg_memory_addr: gpr_t;
 
   procedure p_mov_with_width (
     signal s_width: in std_logic_vector(1 downto 0);
@@ -132,6 +140,7 @@ begin
   o_exception <= exception;
   o_br <= br;
   o_br_target <= br_target;
+  o_memory_work <= memory_work;
 
   s_ins_opcode <= i_inst(30 downto 25);
   s_ins_opcode_condmask <= i_inst(24 downto 21);
@@ -142,6 +151,10 @@ begin
   s_ins_arith_src2 <= to_integer(unsigned(i_inst(12 downto 7)));
   s_ins_arith_signed <= i_inst(6);
   s_ins_arith_width <= i_inst(5 downto 4);
+  s_ins_memory_gpr <= to_integer(unsigned(i_inst(24 downto 19)));
+  s_ins_memory_addrreg <= to_integer(unsigned(i_inst(18 downto 13)));
+  s_ins_memory_width <= i_inst(12 downto 11);
+  s_ins_memory_offset <= i_inst(10 downto 0);
   
   s_reg_opcode_cond <= i_gprs(to_integer(unsigned(i_inst(5 downto 0))))(3 downto 0);
   s_reg_cond_match <= '1' when s_ins_opcode_condmask = "0000" else
@@ -195,6 +208,10 @@ begin
   s_reg_arith_shr_u <= (others => '0');
   s_reg_arith_shr_s <= (others => '0');
   s_reg_arith_shr <= s_reg_arith_shr_s when s_ins_arith_signed = '1' else s_reg_arith_shr_u;
+
+  s_reg_memory_addr <= std_logic_vector(
+    unsigned(i_gprs(s_ins_memory_addrreg)) + resize(unsigned(s_ins_memory_offset(10 downto 0)), 64)
+  );
   
   process (i_clk) is begin
     if rising_edge(i_clk) then
@@ -265,6 +282,26 @@ begin
                   br_target <= to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(20 downto 15))))(MAX_MICROCODE_INDEX_BIT downto 0)));
                 end if;
                 state <= eu_state_done;
+
+              when "100000" => -- ldr
+                memory_work <= (
+                  work => '1',
+                  m_write => '0',
+                  m_width => s_ins_memory_width,
+                  addr => s_reg_memory_addr,
+                  data => (others => '0')
+                );
+                state <= eu_state_ldr;
+
+              when "100001" => -- str
+                memory_work <= (
+                  work => '1',
+                  m_write => '1',
+                  m_width => s_ins_memory_width,
+                  addr => s_reg_memory_addr,
+                  data => i_gprs(s_ins_memory_gpr)
+                );
+                state <= eu_state_str;
               when "111111" => -- debug print
                 report "[debug] " &
                   integer'image(to_integer(unsigned(i_inst(24 downto 17)))) & "/" &
@@ -275,6 +312,33 @@ begin
                 exception <= exc_invalid_inst;
                 state <= eu_state_done;
             end case;
+          when eu_state_ldr =>
+            if i_memory_result.ack = '1' then
+              memory_work.work <= '0';
+            end if;
+            if i_memory_result.done = '1' then
+
+              if i_memory_result.exception = '1' then
+                exception <= exc_memory_access;
+                
+              else
+                gprs(s_ins_memory_gpr) <= i_memory_result.data;
+                gpr_update.modified(s_ins_memory_gpr) <= '1';
+              end if;
+              state <= eu_state_done;
+            end if;
+          when eu_state_str =>
+            if i_memory_result.ack = '1' then
+              memory_work.work <= '0';
+            end if;
+            if i_memory_result.done = '1' then
+
+              if i_memory_result.exception = '1' then
+                exception <= exc_memory_access;
+                
+              end if;
+              state <= eu_state_done;
+            end if;
           when eu_state_done =>
           when others =>
               exception <= exc_eu_internal;
