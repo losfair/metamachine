@@ -192,6 +192,26 @@ fn main() {
                     out |= 0u32 << 23; // nth
                     out |= dst.0 << 17; // dst
                 }
+                "ldr" | "str" => {
+                    let bw = BitWidth::from_str(payload.next().expect("expecting bitwidth")).unwrap();
+                    let gpr_reg = GPR::from_str(payload.next().expect("expecting gpr_reg")).unwrap();
+                    let addr_reg = GPR::from_str(payload.next().expect("expecting addr_reg")).unwrap();
+                    let offset: u32 = payload.next().map(|x| x.parse().expect("invalid numeric literal")).unwrap_or(0);
+
+                    if offset >= (1u32 << 11) {
+                        panic!("invalid memory access offset");
+                    }
+
+                    out |= match inst {
+                        "ldr" => 0b100000u32,
+                        "str" => 0b100001u32,
+                        _ => unreachable!()
+                    } << 25;
+                    out |= gpr_reg.0 << 19;
+                    out |= addr_reg.0 << 13;
+                    out |= (bw as u32) << 11;
+                    out |= (offset as u32) << 0;
+                }
                 "debug" => {
                     let hint: u8 = payload.next().expect("expecting hint").parse().expect("invalid numeric literal");
                     let src = GPR::from_str(payload.next().expect("expecting src")).unwrap();
