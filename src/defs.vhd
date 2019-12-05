@@ -7,7 +7,7 @@ package defs is
     constant MAX_GPR: natural := 63;
     constant MAX_GPR_INDEX_BIT: natural := 5; -- 5 downto 0
     constant MAX_GPR_SIZE_BIT: natural := 5; -- 5 downto 0
-    constant MAX_EU: natural := 3;
+    constant MAX_EU: natural := 5;
 
     type microcode_t is array (0 to MAX_MICROCODE) of std_logic_vector(31 downto 0);
     subtype gpr_t is std_logic_vector(63 downto 0);

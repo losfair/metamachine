@@ -96,32 +96,56 @@ begin
       o_br => eu_rx(3).br,
       o_br_target => eu_rx(3).br_target
     );
-  process (i_clk) is begin
+  eu_4: execution_unit
+    port map(
+      i_clk => i_clk,
+      i_work => eu_tx(4).work,
+      i_inst => eu_tx(4).inst,
+      i_gprs => gprs,
+      o_gprs => eu_rx(4).gprs,
+      o_gpr_update => eu_rx(4).gpr_update,
+      o_done => eu_rx(4).done,
+      o_exception => eu_rx(4).exception,
+      o_br => eu_rx(4).br,
+      o_br_target => eu_rx(4).br_target
+    );
+  eu_5: execution_unit
+    port map(
+      i_clk => i_clk,
+      i_work => eu_tx(5).work,
+      i_inst => eu_tx(5).inst,
+      i_gprs => gprs,
+      o_gprs => eu_rx(5).gprs,
+      o_gpr_update => eu_rx(5).gpr_update,
+      o_done => eu_rx(5).done,
+      o_exception => eu_rx(5).exception,
+      o_br => eu_rx(5).br,
+      o_br_target => eu_rx(5).br_target
+    );
+
+  process (i_clk) is
+    variable v_stop_iter: std_logic;
+  begin
     if rising_edge(i_clk) then
       case state is
         when cpustate_exec =>
-          eu_tx(0).work <= '1';
-          eu_tx(0).inst <= microcode(pc);
-          if microcode(pc)(31) = '0' then
-            pc <= pc + 1;
-          else
-            eu_tx(1).work <= '1';
-            eu_tx(1).inst <= microcode(pc + 1);
-            if microcode(pc + 1)(31) = '0' then
-              pc <= pc + 2;
-            else
-              eu_tx(2).work <= '1';
-              eu_tx(2).inst <= microcode(pc + 2);
-              if microcode(pc + 2)(31) = '0' then
-                pc <= pc + 3;
-              else
-                eu_tx(3).work <= '1';
-                eu_tx(3).inst <= microcode(pc + 3);
-                pc <= pc + 4;
-              end if;
+          v_stop_iter := '0';
+
+          for i in 0 to MAX_EU loop
+            if v_stop_iter = '1' then
+              exit;
             end if;
-          end if;
+            eu_tx(i).work <= '1';
+            eu_tx(i).inst <= microcode(pc + i);
+            if microcode(pc + i)(31) = '0' or i = MAX_EU then
+              pc <= pc + i + 1;
+              v_stop_iter := '1';
+              exit;
+            end if;
+          end loop;
+
           state <= cpustate_wait_for_completion;
+
         when cpustate_wait_for_completion =>
           if
             (eu_tx(0).work = '1' and eu_rx(0).done = '0') or
@@ -139,6 +163,12 @@ begin
             state <= cpustate_halt;
           elsif eu_rx(3).exception /= exc_none then
             report "EXCEPTION on EU 3";
+            state <= cpustate_halt;
+          elsif eu_rx(4).exception /= exc_none then
+            report "EXCEPTION on EU 4";
+            state <= cpustate_halt;
+          elsif eu_rx(5).exception /= exc_none then
+            report "EXCEPTION on EU 5";
             state <= cpustate_halt;
           else
             for i in 0 to MAX_EU loop
