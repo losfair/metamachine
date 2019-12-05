@@ -10,15 +10,24 @@ package defs is
     constant MAX_EU: natural := 3;
 
     type microcode_t is array (0 to MAX_MICROCODE) of std_logic_vector(31 downto 0);
+    subtype pc_t is natural range 0 to MAX_MICROCODE;
     subtype gpr_t is std_logic_vector(63 downto 0);
     type gprset_t is array (0 to MAX_GPR) of gpr_t;
     type gprupdate_t is record
         modified: std_logic_vector(0 to MAX_GPR);
     end record;
+    type gprunification_t is array (natural range <>) of gprset_t;
+    type gprunification_update_t is array (natural range <>) of gprupdate_t;
     type eu_state_t is (eu_state_none, eu_state_init, eu_state_done);
     type exception_t is (exc_none, exc_eu_internal, exc_div_by_zero, exc_invalid_inst);
-    type branch_t is (br_none, br_absolute);
+    type branch_t is (br_none, br_absolute, br_exception);
     type cpu_state_t is (cpustate_halt, cpustate_exec, cpustate_wait_for_completion);
+    type brunification_item_t is record
+        br: branch_t;
+        br_target: pc_t;
+        pc_update_toggle: std_logic;
+    end record;
+    type brunification_t is array (natural range <>) of brunification_item_t;
     subtype opcode_t is std_logic_vector(5 downto 0);
     subtype gprindex_t is natural range 0 to MAX_GPR;
     subtype condition_t is std_logic_vector(3 downto 0);
@@ -26,17 +35,9 @@ package defs is
     type eucontrol_tx_t is record
         work: std_logic;
         inst: std_logic_vector(31 downto 0);
-    end record;
-    type eucontrol_rx_t is record
-        gprs: gprset_t;
-        gpr_update: gprupdate_t;
-        done: std_logic;
-        exception: exception_t;
-        br: branch_t;
-        br_target: natural range 0 to MAX_MICROCODE;
+        pc_update_toggle: std_logic;
     end record;
     type eucontrol_tx_array_t is array (0 to MAX_EU) of eucontrol_tx_t;
-    type eucontrol_rx_array_t is array (0 to MAX_EU) of eucontrol_rx_t;
 
     constant ALL_ZEROS: gpr_t := (others => '0');
     constant ALL_ONES: gpr_t := (others => '1');

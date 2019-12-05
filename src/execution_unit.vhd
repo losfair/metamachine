@@ -10,12 +10,10 @@ entity execution_unit is
     i_work: in std_logic;
     i_inst: in std_logic_vector(31 downto 0);
     i_gprs: in gprset_t;
+    i_pc_update_toggle: in std_logic;
     o_gprs: out gprset_t;
     o_gpr_update: out gprupdate_t;
-    o_done: out std_logic;
-    o_exception: out exception_t;
-    o_br: out branch_t;
-    o_br_target: out natural range 0 to MAX_MICROCODE
+    o_br_state: out brunification_item_t
   );
 end execution_unit;
 
@@ -23,10 +21,11 @@ architecture impl of execution_unit is
 
   signal gprs: gprset_t := (others => (others => '0'));
   signal gpr_update: gprupdate_t := (modified => (others => '0'));
-  signal exception: exception_t := exc_none;
-  signal state: eu_state_t := eu_state_init;
-  signal br: branch_t := br_none;
-  signal br_target: natural range 0 to MAX_MICROCODE := 0;
+  signal br_state: brunification_item_t := (
+    br => br_none,
+    br_target => 0,
+    pc_update_toggle => '0'
+  );
 
   signal s_zero: gpr_t := (others => '0');
   signal s_one: gpr_t := (others => '1');
@@ -71,8 +70,7 @@ architecture impl of execution_unit is
     signal s_src: in std_logic_vector(MAX_GPR_INDEX_BIT downto 0);
     signal s_gprs_in: in gprset_t;
     signal s_gprs_out: out gprset_t;
-    signal s_gpr_update: out gprupdate_t;
-    signal s_exception: out exception_t
+    signal s_gpr_update: out gprupdate_t
   ) is begin
     s_gpr_update.modified(to_integer(unsigned(s_dst))) <= '1';
     case s_width is
@@ -128,10 +126,7 @@ begin
 
   o_gprs <= gprs;
   o_gpr_update <= gpr_update;
-  o_done <= '1' when state = eu_state_done else '0';
-  o_exception <= exception;
-  o_br <= br;
-  o_br_target <= br_target;
+  o_br_state <= br_state;
 
   s_ins_opcode <= i_inst(30 downto 25);
   s_ins_opcode_condmask <= i_inst(24 downto 21);
@@ -199,92 +194,71 @@ begin
   process (i_clk) is begin
     if rising_edge(i_clk) then
       if i_work = '1' then
-        case state is
-          when eu_state_init =>
-            -- report "EU got work: " & to_hstring(i_inst);
-            case s_ins_opcode is
-              when "000001" => -- nop
-                state <= eu_state_done;
-              when "000010" => -- mov
-                if s_reg_cond_match = '1' then
-                  p_mov_with_width(i_inst(20 downto 19), i_inst(18 downto 13), i_inst(12 downto 7), i_gprs, gprs, gpr_update, exception);
-                end if;
-                state <= eu_state_done;
-              when "111000" => -- ldconst16
-                case i_inst(24 downto 23) is
-                  when "00" =>
-                    gprs(s_ins_ldconst_dst)(15 downto 0) <= s_ins_opcode_16b_0;
-                  when "01" =>
-                    gprs(s_ins_ldconst_dst)(31 downto 16) <= s_ins_opcode_16b_0;
-                  when "10" =>
-                    gprs(s_ins_ldconst_dst)(47 downto 32) <= s_ins_opcode_16b_0;
-                  when "11" =>
-                    gprs(s_ins_ldconst_dst)(63 downto 48) <= s_ins_opcode_16b_0;
-                  when others =>
-                end case;
-                gpr_update.modified(s_ins_ldconst_dst) <= '1';
-                state <= eu_state_done;
-
-              when "000011" => -- add
-                sext(s_ins_arith_dst, s_reg_arith_add, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-              when "000100" => -- sub
-                sext(s_ins_arith_dst, s_reg_arith_sub, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-              when "000101" => -- xor
-                sext(s_ins_arith_dst, s_reg_arith_xor, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-              when "000110" => -- and
-                sext(s_ins_arith_dst, s_reg_arith_and, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-              when "000111" => -- or
-                sext(s_ins_arith_dst, s_reg_arith_or, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-              when "001000" => -- shl
-                sext(s_ins_arith_dst, s_reg_arith_shl, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-              when "001001" => -- shr
-                sext(s_ins_arith_dst, s_reg_arith_shr_s, s_ins_arith_width, gprs, gpr_update);
-                state <= eu_state_done;
-
-              when "010000" => -- cmp
-                gprs(s_ins_arith_dst)(63 downto 4) <= (others => '0');
-                gprs(s_ins_arith_dst)(3 downto 0) <= s_reg_arith_cmp;
-                gpr_update.modified(s_ins_arith_dst) <= '1';
-                state <= eu_state_done;
-                
-              when "010100" => -- br
-                if s_reg_cond_match = '1' then
-                  br <= br_absolute;
-                  br_target <= to_integer(unsigned(i_inst((6 + MAX_MICROCODE_INDEX_BIT) downto 6)));
-                end if;
-                state <= eu_state_done;
-              when "010101" => -- br_indirect
-                if s_reg_cond_match = '1' then
-                  br <= br_absolute;
-                  br_target <= to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(20 downto 15))))(MAX_MICROCODE_INDEX_BIT downto 0)));
-                end if;
-                state <= eu_state_done;
-              when "111111" => -- debug print
-                report "[debug] " &
-                  integer'image(to_integer(unsigned(i_inst(24 downto 17)))) & "/" &
-                  integer'image(to_integer(unsigned(i_inst(16 downto 11)))) & ": " &
-                  integer'image(to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(16 downto 11)))))));
-                state <= eu_state_done;
+        -- report "EU got work: " & to_hstring(i_inst);
+        case s_ins_opcode is
+          when "000001" => -- nop
+          when "000010" => -- mov
+            if s_reg_cond_match = '1' then
+              p_mov_with_width(i_inst(20 downto 19), i_inst(18 downto 13), i_inst(12 downto 7), i_gprs, gprs, gpr_update);
+            end if;
+          when "111000" => -- ldconst16
+            case i_inst(24 downto 23) is
+              when "00" =>
+                gprs(s_ins_ldconst_dst)(15 downto 0) <= s_ins_opcode_16b_0;
+              when "01" =>
+                gprs(s_ins_ldconst_dst)(31 downto 16) <= s_ins_opcode_16b_0;
+              when "10" =>
+                gprs(s_ins_ldconst_dst)(47 downto 32) <= s_ins_opcode_16b_0;
+              when "11" =>
+                gprs(s_ins_ldconst_dst)(63 downto 48) <= s_ins_opcode_16b_0;
               when others =>
-                exception <= exc_invalid_inst;
-                state <= eu_state_done;
             end case;
-          when eu_state_done =>
+            gpr_update.modified(s_ins_ldconst_dst) <= '1';
+
+          when "000011" => -- add
+            sext(s_ins_arith_dst, s_reg_arith_add, s_ins_arith_width, gprs, gpr_update);
+          when "000100" => -- sub
+            sext(s_ins_arith_dst, s_reg_arith_sub, s_ins_arith_width, gprs, gpr_update);
+          when "000101" => -- xor
+            sext(s_ins_arith_dst, s_reg_arith_xor, s_ins_arith_width, gprs, gpr_update);
+          when "000110" => -- and
+            sext(s_ins_arith_dst, s_reg_arith_and, s_ins_arith_width, gprs, gpr_update);
+          when "000111" => -- or
+            sext(s_ins_arith_dst, s_reg_arith_or, s_ins_arith_width, gprs, gpr_update);
+          when "001000" => -- shl
+            sext(s_ins_arith_dst, s_reg_arith_shl, s_ins_arith_width, gprs, gpr_update);
+          when "001001" => -- shr
+            sext(s_ins_arith_dst, s_reg_arith_shr_s, s_ins_arith_width, gprs, gpr_update);
+
+          when "010000" => -- cmp
+            gprs(s_ins_arith_dst)(63 downto 4) <= (others => '0');
+            gprs(s_ins_arith_dst)(3 downto 0) <= s_reg_arith_cmp;
+            gpr_update.modified(s_ins_arith_dst) <= '1';
+            
+          when "010100" => -- br
+            if s_reg_cond_match = '1' then
+              br_state.br <= br_absolute;
+              br_state.br_target <= to_integer(unsigned(i_inst((6 + MAX_MICROCODE_INDEX_BIT) downto 6)));
+            end if;
+          when "010101" => -- br_indirect
+            if s_reg_cond_match = '1' then
+              br_state.br <= br_absolute;
+              br_state.br_target <= to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(20 downto 15))))(MAX_MICROCODE_INDEX_BIT downto 0)));
+            end if;
+          when "111111" => -- debug print
+            report "[debug] " &
+              integer'image(to_integer(unsigned(i_inst(24 downto 17)))) & "/" &
+              integer'image(to_integer(unsigned(i_inst(16 downto 11)))) & ": " &
+              integer'image(to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(16 downto 11)))))));
           when others =>
-              exception <= exc_eu_internal;
+            br_state.br <= br_exception;
         end case;
       else
-        state <= eu_state_init;
-        exception <= exc_none;
-        br <= br_none;
+        br_state.br <= br_none;
         gpr_update <= (modified => (others => '0'));
       end if;
+
+      br_state.pc_update_toggle <= i_pc_update_toggle;
     end if;
   end process;
 

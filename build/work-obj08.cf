@@ -1,14 +1,23 @@
 v 4
+file . "../src/stage_decode.vhd" "7c8fdf537c66706cde95731687cb667299bc013f" "20191205021113.394":
+  entity stage_decode at 1( 0) + 0 on 4;
+  architecture impl of stage_decode at 15( 264) + 0 on 4;
+file . "../src/unification.vhd" "b21d7671724d04b6055d7ff89ddad98a7a7212b1" "20191205012129.140":
+  entity unification at 1( 0) + 0 on 4;
+  architecture impl of unification at 18( 310) + 0 on 4;
+file . "../src/builtin_microcode.vhd" "8e97fa5ec08c2d663d5e1f1a399de1c1f7525581" "20191205021103.960":
+  package builtin_microcode at 1( 0) + 0 on 326;
+file . "../src/cpu.vhd" "b5bb6cdd0d20c813062d92636aa51d63b8c54d8b" "20191205021103.989":
+  entity cpu at 1( 0) + 0 on 327;
+  architecture impl of cpu at 14( 230) + 0 on 328;
+file . "../src/defs.vhd" "af3e1cfd4a6a0f84a01cd03d5636cd66a6bea277" "20191205021103.895":
+  package defs at 1( 0) + 0 on 325;
+file . "../src/execution_unit.vhd" "b02ed051d13c19ce0f1a665c48fe66e5f34f0dea" "20191205021104.123":
+  entity execution_unit at 1( 0) + 0 on 329;
+  architecture impl of execution_unit at 22( 502) + 0 on 330;
 file . "../simulation/cpu_test.vhd" "cfc9b80034de11d5452cc528af4edca934a7b93b" "20191204031510.170":
   entity cpu_test at 1( 0) + 0 on 21;
   architecture impl of cpu_test at 8( 104) + 0 on 22;
-file . "../src/execution_unit.vhd" "b02ed051d13c19ce0f1a665c48fe66e5f34f0dea" "20191205011452.031":
-  entity execution_unit at 1( 0) + 0 on 305;
-  architecture impl of execution_unit at 22( 502) + 0 on 306;
-file . "../src/defs.vhd" "54db07d3ccb301c00046478c3f71ecb9a641ed73" "20191204085958.935":
-  package defs at 1( 0) + 0 on 200;
-file . "../src/cpu.vhd" "b5bb6cdd0d20c813062d92636aa51d63b8c54d8b" "20191205011451.870":
-  entity cpu at 1( 0) + 0 on 303;
-  architecture impl of cpu at 14( 230) + 0 on 304;
-file . "../src/builtin_microcode.vhd" "8e97fa5ec08c2d663d5e1f1a399de1c1f7525581" "20191204144356.668":
-  package builtin_microcode at 1( 0) + 0 on 300;
+file . "../src/stage_commit.vhd" "aeb7da69c4d9e6486f5d7fde2d7644e906f2f3d6" "20191205014816.737":
+  entity stage_commit at 1( 0) + 0 on 4;
+  architecture impl of stage_commit at 19( 378) + 0 on 4;
