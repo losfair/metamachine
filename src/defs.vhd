@@ -7,7 +7,7 @@ package defs is
     constant MAX_GPR: natural := 63;
     constant MAX_GPR_INDEX_BIT: natural := 5; -- 5 downto 0
     constant MAX_GPR_SIZE_BIT: natural := 5; -- 5 downto 0
-    constant MAX_EU: natural := 5;
+    constant MAX_EU: natural := 3;
     constant MAX_RAM: natural := 16383;
     constant MAX_RAM_INDEX_BIT: natural := 13;
 

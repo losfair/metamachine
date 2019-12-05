@@ -146,36 +146,6 @@ begin
       o_br_target => eu_rx(3).br_target,
       o_memory_work => memory_work(3)
     );
-  eu_4: execution_unit
-    port map(
-      i_clk => i_clk,
-      i_work => eu_tx(4).work,
-      i_inst => eu_tx(4).inst,
-      i_gprs => gprs,
-      i_memory_result => memory_result(4),
-      o_gprs => eu_rx(4).gprs,
-      o_gpr_update => eu_rx(4).gpr_update,
-      o_done => eu_rx(4).done,
-      o_exception => eu_rx(4).exception,
-      o_br => eu_rx(4).br,
-      o_br_target => eu_rx(4).br_target,
-      o_memory_work => memory_work(4)
-    );
-  eu_5: execution_unit
-    port map(
-      i_clk => i_clk,
-      i_work => eu_tx(5).work,
-      i_inst => eu_tx(5).inst,
-      i_gprs => gprs,
-      i_memory_result => memory_result(5),
-      o_gprs => eu_rx(5).gprs,
-      o_gpr_update => eu_rx(5).gpr_update,
-      o_done => eu_rx(5).done,
-      o_exception => eu_rx(5).exception,
-      o_br => eu_rx(5).br,
-      o_br_target => eu_rx(5).br_target,
-      o_memory_work => memory_work(5)
-    );
 
   process (i_clk) is
     variable v_stop_iter: std_logic;
@@ -205,9 +175,7 @@ begin
             (eu_tx(0).work = '1' and eu_rx(0).done = '0') or
             (eu_tx(1).work = '1' and eu_rx(1).done = '0') or
             (eu_tx(2).work = '1' and eu_rx(2).done = '0') or
-            (eu_tx(3).work = '1' and eu_rx(3).done = '0') or 
-            (eu_tx(4).work = '1' and eu_rx(4).done = '0') or 
-            (eu_tx(5).work = '1' and eu_rx(5).done = '0') then
+            (eu_tx(3).work = '1' and eu_rx(3).done = '0') then
           elsif eu_rx(0).exception /= exc_none then
             report "EXCEPTION on EU 0";
             state <= cpustate_halt;
@@ -219,12 +187,6 @@ begin
             state <= cpustate_halt;
           elsif eu_rx(3).exception /= exc_none then
             report "EXCEPTION on EU 3";
-            state <= cpustate_halt;
-          elsif eu_rx(4).exception /= exc_none then
-            report "EXCEPTION on EU 4";
-            state <= cpustate_halt;
-          elsif eu_rx(5).exception /= exc_none then
-            report "EXCEPTION on EU 5";
             state <= cpustate_halt;
           else
             for i in 0 to MAX_EU loop
