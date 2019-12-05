@@ -25,7 +25,7 @@ begin
   process (i_clk) is begin
     if rising_edge(i_clk) then
       if i_work.work = '1' then
-        if i_work.m_write then
+        if i_work.m_write = '1' then
           case i_work.m_width is
             when "00" =>
               data(addr_in) <= i_work.data(7 downto 0);
