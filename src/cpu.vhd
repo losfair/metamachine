@@ -6,7 +6,8 @@ use work.builtin_microcode.all;
 
 entity cpu is
   port (
-    i_clk: in std_logic
+    i_clk: in std_logic;
+    o_leds: out std_logic_vector(31 downto 0)
   );
 end cpu;
 
@@ -42,6 +43,7 @@ architecture impl of cpu is
   signal state: cpu_state_t := cpustate_exec;
 
 begin
+  o_leds <= (0 => gprs(0)(0), others => '0');
   eu_0: execution_unit
     port map(
       i_clk => i_clk,

@@ -191,23 +191,9 @@ begin
   );
   s_reg_arith_cmp <= s_reg_arith_cmp_s when s_ins_arith_signed = '1' else s_reg_arith_cmp_u;
 
-  s_reg_arith_shl <=
-    s_reg_arith_src1_sext when to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) = 0 else
-    s_reg_arith_src1_sext((63 - to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0)))) downto 0) &
-    ALL_ZEROS((to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) - 1) downto 0);
-
-  s_reg_arith_shr_u <=
-    s_reg_arith_src1_sext when to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) = 0 else
-    ALL_ZEROS((to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) - 1) downto 0) &
-    s_reg_arith_src1_sext(63 downto to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))));
-
-  s_reg_arith_shr_s <=
-    s_reg_arith_src1_sext when to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) = 0 else
-    ALL_ONES((to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) - 1) downto 0) &
-    s_reg_arith_src1_sext(63 downto to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))))
-    when s_reg_arith_src1_sext(63) = '1' else
-    ALL_ZEROS((to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))) - 1) downto 0) &
-    s_reg_arith_src1_sext(63 downto to_integer(unsigned(s_reg_arith_src2_sext(MAX_GPR_SIZE_BIT downto 0))));
+  s_reg_arith_shl <= (others => '0');
+  s_reg_arith_shr_u <= (others => '0');
+  s_reg_arith_shr_s <= (others => '0');
   s_reg_arith_shr <= s_reg_arith_shr_s when s_ins_arith_signed = '1' else s_reg_arith_shr_u;
   
   process (i_clk) is begin
@@ -268,13 +254,13 @@ begin
                 state <= eu_state_done;
                 
               when "010100" => -- br
-                if s_reg_cond_match then
+                if s_reg_cond_match = '1' then
                   br <= br_absolute;
                   br_target <= to_integer(unsigned(i_inst((6 + MAX_MICROCODE_INDEX_BIT) downto 6)));
                 end if;
                 state <= eu_state_done;
               when "010101" => -- br_indirect
-                if s_reg_cond_match then
+                if s_reg_cond_match = '1' then
                   br <= br_absolute;
                   br_target <= to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(20 downto 15))))(MAX_MICROCODE_INDEX_BIT downto 0)));
                 end if;
@@ -283,7 +269,7 @@ begin
                 report "[debug] " &
                   integer'image(to_integer(unsigned(i_inst(24 downto 17)))) & "/" &
                   integer'image(to_integer(unsigned(i_inst(16 downto 11)))) & ": " &
-                  to_hstring(i_gprs(to_integer(unsigned(i_inst(16 downto 11)))));
+                  integer'image(to_integer(unsigned(i_gprs(to_integer(unsigned(i_inst(16 downto 11)))))));
                 state <= eu_state_done;
               when others =>
                 exception <= exc_invalid_inst;
