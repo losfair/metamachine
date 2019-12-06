@@ -7,7 +7,7 @@ use work.builtin_microcode.all;
 entity cpu is
   port (
     i_clk: in std_logic;
-    o_leds: out std_logic_vector(31 downto 0)
+    o_leds: out std_logic_vector(0 downto 0)
   );
 end cpu;
 
@@ -31,23 +31,35 @@ architecture impl of cpu is
   end component;
 
   component memory_sequencer is
-    port (
-      i_clk: in std_logic;
-      i_work: in memory_work_array_t;
-      o_result: out memory_result_array_t;
-  
-      i_backing_result: in memory_result_t;
-      o_backing_work: out memory_work_t
-    );
+  generic (
+    max_work_index: natural range 0 to MAX_EU
+  );
+  port (
+    i_clk: in std_logic;
+    i_work: in memory_work_array_t(0 to max_work_index);
+    o_result: out memory_result_array_t(0 to max_work_index);
+    
+    i_backing_result: in memory_result_t;
+    o_backing_work: out memory_work_t
+  );
   end component;
 
-  component ram is
-    port (
-      i_clk: in std_logic;
-      i_work: in memory_work_t;
-      o_result: out memory_result_t
-    );
-  end component;
+    component blk_mem_user_0 IS
+      PORT (
+        clka : IN STD_LOGIC;
+        ena : IN STD_LOGIC;
+        wea : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+        addra : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+        dina : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+        douta : OUT STD_LOGIC_VECTOR(63 DOWNTO 0);
+        clkb : IN STD_LOGIC;
+        enb : IN STD_LOGIC;
+        web : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+        addrb : IN STD_LOGIC_VECTOR(10 DOWNTO 0);
+        dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
+        doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
+      );
+    END component;
 
   signal microcode: microcode_t := BUILTIN_MICROCODE_WORDS;
   signal pc: natural range 0 to MAX_MICROCODE := 0;
@@ -63,29 +75,56 @@ architecture impl of cpu is
   signal next_eu: natural range 0 to MAX_EU := 0;
   signal state: cpu_state_t := cpustate_exec;
 
-  signal memory_work: memory_work_array_t := (others => EMPTY_MEMORY_WORK);
-  signal memory_result: memory_result_array_t := (others => EMPTY_MEMORY_RESULT);
+  signal memory_work: memory_work_array_t(0 to MAX_EU) := (others => EMPTY_MEMORY_WORK);
+  signal memory_result: memory_result_array_t(0 to MAX_EU) := (others => EMPTY_MEMORY_RESULT);
 
-  signal sequential_memory_work: memory_work_t := EMPTY_MEMORY_WORK;
-  signal sequential_memory_result: memory_result_t := EMPTY_MEMORY_RESULT;
+  signal sequential_memory_work_a: memory_work_t;
+  signal sequential_memory_result_a: memory_result_t;
+
+  signal sequential_memory_work_b: memory_work_t;
+  signal sequential_memory_result_b: memory_result_t;
 
 begin
   o_leds <= (0 => gprs(0)(0), others => '0');
 
-  mseq: memory_sequencer
+  mseq_a: memory_sequencer
+    generic map(
+      max_work_index => 1
+    )
     port map(
       i_clk => i_clk,
-      i_work => memory_work,
-      o_result => memory_result,
-      i_backing_result => sequential_memory_result,
-      o_backing_work => sequential_memory_work
+      i_work => memory_work(0 to 1),
+      o_result => memory_result(0 to 1),
+      i_backing_result => sequential_memory_result_a,
+      o_backing_work => sequential_memory_work_a
     );
-  ram_instance: ram
+  mseq_b: memory_sequencer
+    generic map(
+      max_work_index => 1
+    )
     port map(
       i_clk => i_clk,
-      i_work => sequential_memory_work,
-      o_result => sequential_memory_result
+      i_work => memory_work(2 to MAX_EU),
+      o_result => memory_result(2 to MAX_EU),
+      i_backing_result => sequential_memory_result_b,
+      o_backing_work => sequential_memory_work_b
     );
+  blockram: blk_mem_user_0
+    port map(
+      clka => i_clk,
+      ena => sequential_memory_work_a.m_en,
+      wea => sequential_memory_work_a.m_we,
+      addra => sequential_memory_work_a.m_addr,
+      dina => sequential_memory_work_a.m_din,
+      douta => sequential_memory_result_a.m_dout,
+      clkb => i_clk,
+      enb => sequential_memory_work_b.m_en,
+      web => sequential_memory_work_b.m_we,
+      addrb => sequential_memory_work_b.m_addr,
+      dinb => sequential_memory_work_b.m_din,
+      doutb => sequential_memory_result_b.m_dout
+    );
+  
   eu_0: execution_unit
     port map(
       i_clk => i_clk,

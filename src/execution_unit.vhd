@@ -284,24 +284,11 @@ begin
                 state <= eu_state_done;
 
               when "100000" => -- ldr
-                memory_work <= (
-                  work => '1',
-                  m_write => '0',
-                  m_width => s_ins_memory_width,
-                  addr => s_reg_memory_addr,
-                  data => (others => '0')
-                );
                 state <= eu_state_ldr;
 
               when "100001" => -- str
-                memory_work <= (
-                  work => '1',
-                  m_write => '1',
-                  m_width => s_ins_memory_width,
-                  addr => s_reg_memory_addr,
-                  data => i_gprs(s_ins_memory_gpr)
-                );
                 state <= eu_state_str;
+                
               when "111111" => -- debug print
                 report "[debug] " &
                   integer'image(to_integer(unsigned(i_inst(24 downto 17)))) & "/" &
@@ -313,32 +300,7 @@ begin
                 state <= eu_state_done;
             end case;
           when eu_state_ldr =>
-            if i_memory_result.ack = '1' then
-              memory_work.work <= '0';
-            end if;
-            if i_memory_result.done = '1' then
-
-              if i_memory_result.exception = '1' then
-                exception <= exc_memory_access;
-                
-              else
-                gprs(s_ins_memory_gpr) <= i_memory_result.data;
-                gpr_update.modified(s_ins_memory_gpr) <= '1';
-              end if;
-              state <= eu_state_done;
-            end if;
           when eu_state_str =>
-            if i_memory_result.ack = '1' then
-              memory_work.work <= '0';
-            end if;
-            if i_memory_result.done = '1' then
-
-              if i_memory_result.exception = '1' then
-                exception <= exc_memory_access;
-                
-              end if;
-              state <= eu_state_done;
-            end if;
           when eu_state_done =>
           when others =>
               exception <= exc_eu_internal;
